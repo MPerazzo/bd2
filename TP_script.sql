@@ -81,8 +81,8 @@ de negocio del problema. Como no es UNIQUE se obtiene un INDEX_RANGE_SCAN como p
       and lower(po.record_locator) = lower(pRecordLocator)
       and rtrim(ltrim(po.status)) = 'PENDING';
 
-/* Se propone el uso de un HASH cuando en realidad se pueden usar índices para reducir el costo de la operación.
-Primero se cuenta con el índice ya creado SUPPLIER_PK y además se va a crear un nuevo índice sobre (SUPPLIER_ID, RECORD_LOCATOR, STATUS)
+/* Se propone el uso de un HASH JOIN cuando en realidad se podrían utilizar índices para realizar la operación.
+Por este motivo se soluciona a partir de NESTED_LOOPS utilizando el índice ya creado SUPPLIER_PK y además se va a crear un nuevo índice sobre (SUPPLIER_ID, RECORD_LOCATOR, STATUS)
 el cuál no va a ser UNIQUE por la lógica del negocio. Como resultado el plan va a contar con NESTED_LOOPS
  + INDEX UNIQUE SCAN (SUPPLIER_PK) + INDEX RANGE SCAN (nuevo índice). */
 
