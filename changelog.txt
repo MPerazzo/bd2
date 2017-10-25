@@ -1,0 +1,67 @@
+En este archivo van los cambios finales al script y el motivo de los mismos
+
+1.	Se descubrio que el procedure no podia correr debido a diversos problemas los cuales se corrigen a continuacion:
+
+	alter database datafile '/dbases/oracle11g/u01/app/oracle/product/11.2.0/db_1/dbs/team2_data.ora' AUTOEXTEND ON;
+	alter database datafile '/dbases/oracle11g/u01/app/oracle/product/11.2.0/db_1/dbs/team2_indexes.ora' AUTOEXTEND ON;
+
+2.	Debido a que no existia un catch para algunas excepciones, se decidio agregarlo para el correcto funcionamiento del procedure.
+	Esto permitio la completa ejecucion del mismo al ser agregado en conciliate_statement (para evitar que la excepcion suba hacia arriba).
+
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            dbms_output.put_line('No data was found.');
+
+3.	Se evita un stack overflow al deshabilitar temporalmente el output de dbms
+
+	dbms_output.disable();
+
+4.	Se crearon nuevos índices para planes de menor costo
+
+	CREATE INDEX "BDII_TEAM2"."PAYMENT_ORDER_TR" ON "BDII_TEAM2"."PAYMENT_ORDER" ("SUPPLIER_ID", "RECORD_LOCATOR", "STATUS") 
+	  PCTFREE 10 INITRANS 2 MAXTRANS 255 COMPUTE STATISTICS 
+	  STORAGE(INITIAL 10240 NEXT 55296 MINEXTENTS 1 MAXEXTENTS 121
+	  PCTINCREASE 50 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+	  TABLESPACE "TEAM2_INDEXES";
+	  
+	CREATE INDEX "BDII_TEAM2"."HOTEL_STATEMENT_DB" ON "BDII_TEAM2"."HOTEL_STATEMENT" ("STATEMENT_LOCATOR", "STATUS") 
+	  PCTFREE 10 INITRANS 2 MAXTRANS 255 COMPUTE STATISTICS 
+	  STORAGE(INITIAL 10240 NEXT 55296 MINEXTENTS 1 MAXEXTENTS 121
+	  PCTINCREASE 50 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+	  TABLESPACE "TEAM2_INDEXES";
+
+5.	La tabla CONCILIATION cuenta con una gran cantidad de índices cuando en la misma no se va a realizar ningún UPDATE, ni DELETE ni SELECT.
+	Esto genera mucho overhead en la operación de INSERT sobre la tabla la cuál es fundamental dado las características del negocio y desperdicia
+	espacio en disco. Por este motivo se procede a eliminar los índices de la tabla.
+
+
+	DROP INDEX "CONCILIATION_PK";
+
+	DROP INDEX "CONC_DATES_IDX";
+
+	DROP INDEX "CONC_HOTEL_STATEMENT_IDX";
+
+	DROP INDEX "CONC_PAYMENT_ORDER_IDX";
+
+	DROP INDEX "CONC_STATEMENT_LOCATOR_IDX";
+
+	DROP INDEX "CONC_STATUS_IDX";
+
+
+6.
+	Si bien los indices dan una mejor performance, es preferible utilizar los constraints primary key o unique, ya que estos garantizan
+	que al realizar una busqueda se retornara el primer valor. Esto se debe a que no hay dos valores iguales (pues son unique).
+	=> se reemplazaron los indices de mas arriba por constraints de pk (ademas simplifica la lectura y no hay valores magicos).
+	Ademas los constraints permiten agregar claves remotas, mientras que los indices no.
+
+	DROP INDEX "HOTEL_STATEMENT_PK";
+
+	DROP INDEX "PAYMENT_ORDER_PK";
+
+	DROP INDEX "SUPPLIER_PK";
+
+	ALTER TABLE "BDII_TEAM2"."HOTEL_STATEMENT" ADD CONSTRAINT "HOTEL_STATEMENT_PK" PRIMARY KEY ("ID") using index TABLESPACE "TEAM2_INDEXES";
+
+	ALTER TABLE "BDII_TEAM2"."SUPPLIER" ADD CONSTRAINT "SUPPLIER_PK" PRIMARY KEY ("ID") using index TABLESPACE "TEAM2_INDEXES";
+
+	ALTER TABLE "BDII_TEAM2"."PAYMENT_ORDER" ADD CONSTRAINT "PAYMENT_ORDER_PK" PRIMARY KEY ("ID") using index TABLESPACE "TEAM2_INDEXES";
