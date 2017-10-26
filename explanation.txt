@@ -155,36 +155,6 @@ DROP INDEX "CONC_STATEMENT_LOCATOR_IDX";
 
 DROP INDEX "CONC_STATUS_IDX";
 
-DUDA : Optimizaciones vs Representacion de la relación en el lenguaje de negocio ?
-(Por ejemplo Unique, Foreign Keys)
-
-## MODIFICACIÓN DE ÍNDICES NO UNIQUE A UNIQUE
-
-DROP INDEX "HOTEL_STATEMENT_PK";
-
-DROP INDEX "PAYMENT_ORDER_PK";
-
-DROP INDEX "SUPPLIER_PK";
-
-CREATE UNIQUE INDEX "BDII_TEAM2"."HOTEL_STATEMENT_PK" ON "BDII_TEAM2"."HOTEL_STATEMENT" ("ID") 
-  PCTFREE 10 INITRANS 2 MAXTRANS 255 COMPUTE STATISTICS 
-  STORAGE(INITIAL 10240 NEXT 55296 MINEXTENTS 1 MAXEXTENTS 121
-  PCTINCREASE 50 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
-  TABLESPACE "TEAM2_INDEXES";
-
-
-CREATE UNIQUE INDEX "BDII_TEAM2"."PAYMENT_ORDER_PK" ON "BDII_TEAM2"."PAYMENT_ORDER" ("ID") 
-  PCTFREE 10 INITRANS 2 MAXTRANS 255 COMPUTE STATISTICS 
-  STORAGE(INITIAL 10240 NEXT 83968 MINEXTENTS 1 MAXEXTENTS 121
-  PCTINCREASE 50 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
-  TABLESPACE "TEAM2_INDEXES";
-
-CREATE UNIQUE INDEX "BDII_TEAM2"."SUPPLIER_PK" ON "BDII_TEAM2"."SUPPLIER" ("ID") 
-  PCTFREE 10 INITRANS 2 MAXTRANS 255 COMPUTE STATISTICS 
-  STORAGE(INITIAL 10240 NEXT 36864 MINEXTENTS 1 MAXEXTENTS 121
-  PCTINCREASE 50 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
-  TABLESPACE "TEAM2_INDEXES";
-
 
 ##CÁLCULO DE TIEMPO DE EJECUCIÓN
 
@@ -202,11 +172,15 @@ PROCEDURE conciliate_all_statements AS
 
 /* dbms_utility.get_time() computa centésimas de segundo */
 
+## MODIFICACIÓN DE ÍNDICES NO UNIQUE A UNIQUE
 
+/* Se agrega la Constraint "Primary Key" sobre los ID de las tablas SUPPLIER, HOTEL_STATEMENT y PAYMENT_ORDER para representar la lógica de negocio y para generar índices UNIQUE ya que los índices existentes no lo son. Esto garantiza que al realizar una busqueda se retorne el primer valor debido a que no hay dos valores iguales (pues son unique).
 
-/* Si bien los indices dan una mejor performance, es preferible utilizar los constraints primary key o unique, ya que estos garantizan
-que al realizar una busqueda se retornara el primer valor. Esto se debe a que no hay dos valores iguales (pues son unique).
-=> se reemplazaron los indices de mas arriba por constraints de pk (ademas simplifica la lectura y no hay valores magicos).*/
+DROP INDEX "HOTEL_STATEMENT_PK";
+
+DROP INDEX "PAYMENT_ORDER_PK";
+
+DROP INDEX "SUPPLIER_PK";
 
 ALTER TABLE "BDII_TEAM2"."HOTEL_STATEMENT" ADD CONSTRAINT "HOTEL_STATEMENT_PK" PRIMARY KEY ("ID") using index TABLESPACE "TEAM2_INDEXES";
 

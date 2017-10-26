@@ -49,10 +49,7 @@ En este archivo van los cambios finales al script y el motivo de los mismos
 
 
 6.
-	Si bien los indices dan una mejor performance, es preferible utilizar los constraints primary key o unique, ya que estos garantizan
-	que al realizar una busqueda se retornara el primer valor. Esto se debe a que no hay dos valores iguales (pues son unique).
-	=> se reemplazaron los indices de mas arriba por constraints de pk (ademas simplifica la lectura y no hay valores magicos).
-	Ademas los constraints permiten agregar claves remotas, mientras que los indices no.
+	/* Se agrega la Constraint "Primary Key" sobre los ID de las tablas SUPPLIER, HOTEL_STATEMENT y PAYMENT_ORDER para representar la lógica de negocio y para generar índices UNIQUE ya que los índices existentes no lo son. Esto garantiza que al realizar una busqueda se retorne el primer valor debido a que no hay dos valores iguales (pues son unique).
 
 	DROP INDEX "HOTEL_STATEMENT_PK";
 
