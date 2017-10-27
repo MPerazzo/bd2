@@ -11,7 +11,7 @@
     
     dbms_output.enable();
   
-    dbms_output.put_line('profile: ' || to_char(dbms_utility.get_time() - timestart) || 'ms');
+    dbms_output.put_line('profile: ' || to_char(dbms_utility.get_time() - timestart) || 'cs');
     
   END profiler;
 
@@ -53,8 +53,8 @@ dbms_output.enable(buffer_size);
 
 -------------------------  OPTIMIZACIÓN --------------------
 
-/* La optimización se realiza a partir de la creación de índices o eliminando aquellos que no sean utilizados.
-   Para eso se analizan las queries con statements delete, update o select. */
+/* La optimización se puede realizar  a partir de la creación de índices, la eliminación de aquellos que no sean utilizados, etc. Para eso se analizan las queries con statements delete, update o select y se verifica
+la coherencia del código de la base de datos. */
 
 /* Considerar que índices existentes se van a modificar indicando UNIQUE para la precisión en la predicción
 del plan a utilizar */
@@ -155,26 +155,9 @@ DROP INDEX "CONC_STATEMENT_LOCATOR_IDX";
 
 DROP INDEX "CONC_STATUS_IDX";
 
+## MODIFICACIÓN DE TABLAS
 
-##CÁLCULO DE TIEMPO DE EJECUCIÓN
-
-PROCEDURE conciliate_all_statements AS
-  timestart NUMBER;
-  BEGIN
-
-  timestart := dbms_utility.get_time();
-
-  /*  ... LÓGICA ... */
-
-  dbms_output.put_line('TIEMPO FINAL: ' || to_char(dbms_utility.get_time()-timestart));
-
-  END
-
-/* dbms_utility.get_time() computa centésimas de segundo */
-
-## MODIFICACIÓN DE ÍNDICES NO UNIQUE A UNIQUE
-
-/* Se agrega la Constraint "Primary Key" sobre los ID de las tablas SUPPLIER, HOTEL_STATEMENT y PAYMENT_ORDER para representar la lógica de negocio y para generar índices UNIQUE ya que los índices existentes no lo son. Esto garantiza que al realizar una busqueda se retorne el primer valor debido a que no hay dos valores iguales (pues son unique).
+/* Se agrega la Constraint "Primary Key" sobre los ID de las tablas SUPPLIER, HOTEL_STATEMENT y PAYMENT_ORDER para representar la lógica de negocio y para generar índices UNIQUE ya que los índices existentes no lo son. Esto garantiza que al realizar una busqueda se retorne el primer valor debido a que no hay dos valores iguales (pues son unique). Recordar que la creación de una primary key sobre un atributo genera un índice sobre el mismo.
 
 DROP INDEX "HOTEL_STATEMENT_PK";
 
@@ -187,6 +170,95 @@ ALTER TABLE "BDII_TEAM2"."HOTEL_STATEMENT" ADD CONSTRAINT "HOTEL_STATEMENT_PK" P
 ALTER TABLE "BDII_TEAM2"."SUPPLIER" ADD CONSTRAINT "SUPPLIER_PK" PRIMARY KEY ("ID") using index TABLESPACE "TEAM2_INDEXES";
 
 ALTER TABLE "BDII_TEAM2"."PAYMENT_ORDER" ADD CONSTRAINT "PAYMENT_ORDER_PK" PRIMARY KEY ("ID") using index TABLESPACE "TEAM2_INDEXES";
+
+
+/* Se modifican los valores de PCTFREE y PCTUSED de la tabla CONCILIATION ya que 80 como PCTFREE es un valor
+  extremadamente alto y desperdiciaría mucho espacio en disco. También se modifico su PCTINCREASE de 5 a 50
+  dado que es probable que esta tabla requiera de mucho espacio en disco y si el PCTINCREASE es bajo entonces va a aumentar considerablemente la cantidad de syscalls a relizar para la alocación de nuevos extents. 
+  Se modifico el tamaño de STATUS de 1000 a 20. */
+
+CREATE TABLE "BDII_TEAM2"."CONCILIATION" 
+   (  "ID" NUMBER(10,0), 
+  "HOTEL_STATEMENT_ID" NUMBER(10,0), 
+  "STATEMENT_LOCATOR" CHAR(20 BYTE), 
+  "PAYMENT_ORDER_ID" NUMBER(10,0), 
+  "CONCILIATED_AMOUNT" NUMBER(10,2), 
+  "CONCILIATED_AMOUNT_CURRENCY" CHAR(3 BYTE), 
+  "ADJUSTMENT_AMOUNT" NUMBER(10,2), 
+  "ADJUSTMENT_AMOUNT_CURRENCY" CHAR(3 BYTE), 
+  "STATUS" CHAR(1000 BYTE), 
+  "CREATED" TIMESTAMP (6), 
+  "MODIFIED" TIMESTAMP (6)
+   ) SEGMENT CREATION IMMEDIATE 
+  PCTFREE 10 PCTUSED 40 INITRANS 1 MAXTRANS 255 NOCOMPRESS LOGGING
+  STORAGE(INITIAL 10240 NEXT 10240 MINEXTENTS 1 MAXEXTENTS 121
+  PCTINCREASE 5 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+  TABLESPACE "TEAM2_DATA" ;
+
+
+/* Se modifico el campo NEXT de la tabla HOTEL_STATEMENT dado que el valor 126976 es muy grande para esta tabla y generaría un desperdicio del espacio en disco */
+
+CREATE TABLE "BDII_TEAM2"."HOTEL_STATEMENT" 
+   (  "ID" NUMBER(10,0), 
+  "RECORD_LOCATOR" CHAR(6 BYTE), 
+  "SUPPLIER_ID" NUMBER(10,0), 
+  "AMOUNT" NUMBER(10,2), 
+  "CURRENCY" CHAR(3 BYTE), 
+  "STATEMENT_LOCATOR" CHAR(20 BYTE), 
+  "STATUS" CHAR(20 BYTE), 
+  "CREATED" TIMESTAMP (6), 
+  "MODIFIED" TIMESTAMP (6)
+   ) SEGMENT CREATION IMMEDIATE 
+  PCTFREE 10 PCTUSED 40 INITRANS 1 MAXTRANS 255 NOCOMPRESS LOGGING
+  STORAGE(INITIAL 10240 NEXT 126976 MINEXTENTS 1 MAXEXTENTS 121
+  PCTINCREASE 50 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+  TABLESPACE "TEAM2_DATA" ;
+
+/* Análogo al anterior, se modifico next de PAYMENT_ORDER */
+
+  CREATE TABLE "BDII_TEAM2"."PAYMENT_ORDER" 
+   (  "ID" NUMBER(10,0), 
+  "RECORD_LOCATOR" CHAR(6 BYTE), 
+  "SUPPLIER_ID" NUMBER(10,0), 
+  "TOTAL_AMOUNT" NUMBER(10,2), 
+  "TOTAL_AMOUNT_CURRENCY" CHAR(3 BYTE), 
+  "TOTAL_COST" NUMBER(10,2), 
+  "TOTAL_COST_CURRENCY" CHAR(3 BYTE), 
+  "STATUS" CHAR(20 BYTE), 
+  "CHECKIN" DATE, 
+  "CHECKOUT" DATE, 
+  "CREATED" TIMESTAMP (6), 
+  "MODIFIED" TIMESTAMP (6)
+   ) SEGMENT CREATION IMMEDIATE 
+  PCTFREE 10 PCTUSED 40 INITRANS 1 MAXTRANS 255 NOCOMPRESS LOGGING
+  STORAGE(INITIAL 10240 NEXT 286720 MINEXTENTS 1 MAXEXTENTS 121
+  PCTINCREASE 50 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+  TABLESPACE "TEAM2_DATA" ;
+
+/* Análogo al anterior se modifico NEXT de SUPPLIER */
+
+    CREATE TABLE "BDII_TEAM2"."SUPPLIER" 
+   (  "ID" NUMBER(10,0), 
+  "LEGAL_NAME" VARCHAR2(100 BYTE), 
+  "TAX_PAYER_ID" VARCHAR2(20 BYTE), 
+  "COUNTRY" CHAR(2 BYTE), 
+  "CONCILIATION_CRITERIA" CHAR(10 BYTE), 
+  "CONCILIATION_TOLERANCE_PERC" NUMBER(10,2), 
+  "CONCILIATION_TOLERANCE_MAX" NUMBER(10,2), 
+  "STATUS" CHAR(10 BYTE)
+   ) SEGMENT CREATION IMMEDIATE 
+  PCTFREE 10 PCTUSED 40 INITRANS 1 MAXTRANS 255 NOCOMPRESS LOGGING
+  STORAGE(INITIAL 10240 NEXT 83968 MINEXTENTS 1 MAXEXTENTS 121
+  PCTINCREASE 50 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
+  TABLESPACE "TEAM2_DATA" ;
+
+  ## MODIFICACIÓN DE SECUENCIAS
+
+  /* Se removieron tres secuencias HOTEL_STATEMENT_SEQ, PAYMENT_ORDER_SEQ y SUPPLIER_SEQ dado que las mismas
+  no van a ser utilizadas. Se modifico la sequencia CONCILIATION_SEQ indicando NOMAXVALUE en vez de indicar 9999999999999999999999999999 como valor máximo dado que el valor máximo actual es de 28 dígitos, el cuál corresponde al valor previo indicado pero si en un futuro ese valor fuese a cambiar por una menor cantidad es straightforward indicar NOMAXVALUE que configura el máximo como el valor más grande posible.
+
+  CREATE SEQUENCE  "BDII_TEAM2"."CONCILIATION_SEQ"  MINVALUE 1 NOMAXVALUE INCREMENT BY 1 START WITH 1 CACHE 20 NOORDER  NOCYCLE ;
+
 
 /*Se agrego un script para correr drop, create y el script con una sola linea. La forma para ejecutarlo es:
 @path_to_script/run.sql
