@@ -195,6 +195,16 @@ CREATE TABLE "BDII_TEAM2"."CONCILIATION"
   PCTINCREASE 5 FREELISTS 1 FREELIST GROUPS 1 BUFFER_POOL DEFAULT FLASH_CACHE DEFAULT CELL_FLASH_CACHE DEFAULT)
   TABLESPACE "TEAM2_DATA" ;
 
+/* Se eliminaron las FK en la tabla CONCILIATION dado que los inserts en la misma se hacen desde la procedure
+   y se verifica que se cumplan las condiciones de junta antes de insertar en esta. Esto es más performante
+   dado que por cada insert no debe analizar si el valor insertado pertenece a otra tabla. */
+
+ALTER TABLE CONCILIATION
+DROP CONSTRAINT "CONC_HOTEL_STATEMENT_FK";
+
+ALTER TABLE CONCILIATION
+DROP CONSTRAINT "CONC_PAYMENT_ORDER_FK";
+
 
 /* Se modifico el campo NEXT de la tabla HOTEL_STATEMENT dado que el valor 126976 es muy grande para esta tabla y generaría un desperdicio del espacio en disco */
 
