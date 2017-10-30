@@ -95,49 +95,29 @@ create or replace PACKAGE BODY  "CONCILIATE_PKG" AS
           WHERE ID = pHsId;
   END conciliate_booking;
 
-  -- Conciliacion de un extracto
-  PROCEDURE conciliate_statement ( pStatementLocator VARCHAR, pId NUMBER, pSupplierId NUMBER, pRecordLocator VARCHAR, 
-                                            pAmount NUMBER, pCurrency VARCHAR ) AS
-  		vTolPercentage NUMBER(10,2);
-  		vTolMax NUMBER(10,2);
-  BEGIN
-
-    dbms_output.put_line('Conciliating statement '||pStatementLocator);
-
-    	-- Recupero los parametros de tolerancia del proveedor
-    	dbms_output.put_line('  Retrieving supplier '||pRecordLocator);
-    	SELECT /*+SUPPLIER_PK*/ s.CONCILIATION_TOLERANCE_PERC, s.CONCILIATION_TOLERANCE_MAX
-    	INTO vTolPercentage, vTolMax
-    	FROM supplier s
-    	WHERE s.ID = pSupplierId;
-
-        -- Concilio una reserva
-        dbms_output.put_line('  Conciliating booking '||pRecordLocator);
-        conciliate_booking(pStatementLocator,pId,pSupplierId,pRecordLocator,pAmount,pCurrency,vTolPercentage,vTolMax);
-
-    -- El extracto debe procesarse completo
-    COMMIT;
-
-    EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-            dbms_output.put_line('Not Found');
-
-  END conciliate_statement;
-
   -- Conciliacion de todos los extractos pendientes
   PROCEDURE conciliate_all_statements AS
   BEGIN        
 
     -- Recorro los extractos pendientes
     FOR R IN ( 
-        SELECT hs.STATEMENT_LOCATOR, hs.ID, hs.SUPPLIER_ID, hs.RECORD_LOCATOR, hs.AMOUNT, hs.CURRENCY
-        FROM hotel_statement hs
+        SELECT hs.STATEMENT_LOCATOR, hs.ID, hs.SUPPLIER_ID, hs.RECORD_LOCATOR, hs.AMOUNT, hs.CURRENCY, 
+        s.CONCILIATION_TOLERANCE_PERC, s.CONCILIATION_TOLERANCE_MAX
+        FROM supplier s join hotel_statement hs on s.ID = hs.SUPPLIER_ID
         WHERE LTRIM(RTRIM(hs.STATUS)) = 'PENDING'
    ) LOOP
    
     	-- Concilio el extracto actual
-    	conciliate_statement(R.STATEMENT_LOCATOR, R.ID, R.SUPPLIER_ID, R.RECORD_LOCATOR, R.AMOUNT, R.CURRENCY);
+    	conciliate_booking(R.STATEMENT_LOCATOR, R.ID, R.SUPPLIER_ID, R.RECORD_LOCATOR, R.AMOUNT, R.CURRENCY,
+        R.CONCILIATION_TOLERANCE_PERC, R.CONCILIATION_TOLERANCE_MAX);
+        
     END LOOP;
+    
+    COMMIT;
+
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            dbms_output.put_line('Not Found');
 
   END conciliate_all_statements;
 
@@ -153,7 +133,7 @@ create or replace PACKAGE BODY  "CONCILIATE_PKG" AS
     
     dbms_output.enable();
   
-    dbms_output.put_line('profile: ' || to_char(dbms_utility.get_time() - timestart) || 'cs');
+    dbms_output.put_line('profile: ' || to_char((dbms_utility.get_time() - timestart)*10) || 'ms');
     
   END profiler;
 
